@@ -30,7 +30,7 @@
  * there have been reports of it being too much in some users' cases,
  * so 128 is considered a safe default.
  */
-#define DYNAMIC_MACRO_SIZE 128
+#define DYNAMIC_MACRO_SIZE 256
 #endif
 
 /* DYNAMIC_MACRO_RANGE must be set as the last element of user's
@@ -50,7 +50,11 @@ void dynamic_macro_led_blink(void)
 {
 #ifdef BACKLIGHT_ENABLE
     backlight_toggle();
+#endif
+    led_escKeyToggle();
     wait_ms(100);
+    led_escKeyToggle();
+#ifdef BACKLIGHT_ENABLE
     backlight_toggle();
 #endif
 }
@@ -237,7 +241,7 @@ bool process_record_dynamic_macro(uint16_t keycode, keyrecord_t *record)
 
     if (macro_id == 0) {
         /* No macro recording in progress. */
-        if (!record->event.pressed) {
+        if (record->event.pressed) {
             switch (keycode) {
             case DYN_REC_START1:
                 dynamic_macro_record_start(&macro_pointer, macro_buffer);
@@ -253,16 +257,34 @@ bool process_record_dynamic_macro(uint16_t keycode, keyrecord_t *record)
             case DYN_MACRO_PLAY2:
                 dynamic_macro_play(r_macro_buffer, r_macro_end, -1);
                 return false;
+            case DYN_REC_STOP:
+                dprintf("dynamic macro: no recording to stop\n");
+                return false;
+            }
+        } else {
+            // ignore key releases for macro keys
+            switch (keycode) {
+            case DYN_REC_START1:
+            case DYN_REC_START2:
+            case DYN_MACRO_PLAY1:
+            case DYN_MACRO_PLAY2:
+            case DYN_REC_STOP:
+                dprintf("dynamic macro: ignoring macro key release\n");
+                return false;
             }
         }
     } else {
         /* A macro is being recorded right now. */
         switch (keycode) {
+        case DYN_REC_START1:
+        case DYN_REC_START2:
+        case DYN_MACRO_PLAY1:
+        case DYN_MACRO_PLAY2:
         case DYN_REC_STOP:
-            /* Stop the macro recording. */
-            if (record->event.pressed) { /* Ignore the initial release
-                                          * just after the recoding
-                                          * starts. */
+            /* if any macro key was pressed,
+             * stop recording to avoid recursive loops
+             * (e.g. recording macro1 within macro1) */
+            if (record->event.pressed) {
                 switch (macro_id) {
                 case 1:
                     dynamic_macro_record_end(macro_buffer, macro_pointer, +1, &macro_end);
@@ -271,12 +293,11 @@ bool process_record_dynamic_macro(uint16_t keycode, keyrecord_t *record)
                     dynamic_macro_record_end(r_macro_buffer, macro_pointer, -1, &r_macro_end);
                     break;
                 }
+                dprintf("dynamic macro: recording stopped\n");
                 macro_id = 0;
+            } else {
+                dprintf("dynamic macro: ignoring macro key release\n");
             }
-            return false;
-        case DYN_MACRO_PLAY1:
-        case DYN_MACRO_PLAY2:
-            dprintln("dynamic macro: ignoring macro play key while recording");
             return false;
         default:
             /* Store the key in the macro buffer and process it normally. */
@@ -288,7 +309,6 @@ bool process_record_dynamic_macro(uint16_t keycode, keyrecord_t *record)
                 dynamic_macro_record_key(r_macro_buffer, &macro_pointer, macro_end, -1, record);
                 break;
             }
-            return true;
             break;
         }
     }

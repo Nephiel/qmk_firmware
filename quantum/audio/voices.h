@@ -29,10 +29,10 @@ float voice_envelope(float frequency);
 typedef enum {
     default_voice,
     #ifdef AUDIO_VOICES
-    something,
-    drums,
-    butts_fader,
-    octave_crunch,
+    //something,
+    //drums,
+    //butts_fader,
+    //octave_crunch,
     duty_osc,
     duty_octave_down,
     delayed_vibrato,

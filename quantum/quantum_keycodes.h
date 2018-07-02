@@ -426,13 +426,13 @@ enum quantum_keycodes {
     RGB_MODE_RGBTEST,
 
     // Left shift, open paren
-    KC_LSPO,
+    //KC_LSPO,
 
     // Right shift, close paren
-    KC_RSPC,
+    //KC_RSPC,
 
     // Shift, Enter
-    KC_SFTENT,
+    //KC_SFTENT,
 
     // Printing
     PRINT_ON,

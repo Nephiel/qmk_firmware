@@ -16,8 +16,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <stdbool.h>
-#include<avr/io.h>
-#include<util/delay.h>
+#include <stdlib.h>
+#include <avr/io.h>
+#include <util/delay.h>
 #include "ps2_mouse.h"
 #include "host.h"
 #include "timer.h"
@@ -25,12 +26,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "report.h"
 #include "debug.h"
 #include "ps2.h"
+#ifdef AUDIO_ENABLE
+#include "audio.h"
+#endif
+
+#ifndef NO_ACTION_LAYER
+#include "action_layer.h"
+#endif
 
 /* ============================= MACROS ============================ */
 
 static report_mouse_t mouse_report = {};
 
 static inline void ps2_mouse_print_report(report_mouse_t *mouse_report);
+static inline void ps2_mouse_print_report_raw(report_mouse_t *mouse_report);
+static inline void ps2_mouse_print_report_hid(report_mouse_t *mouse_report);
 static inline void ps2_mouse_convert_report_to_hid(report_mouse_t *mouse_report);
 static inline void ps2_mouse_clear_report(report_mouse_t *mouse_report);
 static inline void ps2_mouse_enable_scrolling(void);
@@ -78,6 +88,11 @@ void ps2_mouse_task(void) {
     uint8_t rcv;
     rcv = ps2_host_send(PS2_MOUSE_READ_DATA);
     if (rcv == PS2_ACK) {
+#ifdef AUDIO_ENABLE
+        if (is_music_on()) {
+            return;
+        }
+#endif
         mouse_report.buttons = ps2_host_recv_response() | tp_buttons;
         mouse_report.x = ps2_host_recv_response() * PS2_MOUSE_X_MULTIPLIER;
         mouse_report.y = ps2_host_recv_response() * PS2_MOUSE_Y_MULTIPLIER;
@@ -94,7 +109,7 @@ void ps2_mouse_task(void) {
             ((mouse_report.buttons ^ buttons_prev) & PS2_MOUSE_BTN_MASK)) {
 #ifdef PS2_MOUSE_DEBUG_RAW
         // Used to debug raw ps2 bytes from mouse
-        ps2_mouse_print_report(&mouse_report);
+        ps2_mouse_print_report_raw(&mouse_report);
 #endif
         buttons_prev = mouse_report.buttons;
         ps2_mouse_convert_report_to_hid(&mouse_report);
@@ -103,7 +118,7 @@ void ps2_mouse_task(void) {
 #endif
 #ifdef PS2_MOUSE_DEBUG_HID
         // Used to debug the bytes sent to the host
-        ps2_mouse_print_report(&mouse_report);
+        ps2_mouse_print_report_hid(&mouse_report);
 #endif
         host_mouse_send(&mouse_report);
     }
@@ -187,6 +202,18 @@ static inline void ps2_mouse_clear_report(report_mouse_t *mouse_report) {
     mouse_report->buttons = 0;
 }
 
+static inline void ps2_mouse_print_report_raw(report_mouse_t *mouse_report) {
+    if (!debug_mouse) return;
+    print("ps2_mouse raw: [");
+    ps2_mouse_print_report(mouse_report);
+}
+
+static inline void ps2_mouse_print_report_hid(report_mouse_t *mouse_report) {
+    if (!debug_mouse) return;
+    print("ps2_mouse hid: [");
+    ps2_mouse_print_report(mouse_report);
+}
+
 static inline void ps2_mouse_print_report(report_mouse_t *mouse_report) {
     if (!debug_mouse) return;
     print("ps2_mouse: [");
@@ -198,7 +225,7 @@ static inline void ps2_mouse_print_report(report_mouse_t *mouse_report) {
 }
 
 static inline void ps2_mouse_enable_scrolling(void) {
-    PS2_MOUSE_SEND(PS2_MOUSE_SET_SAMPLE_RATE, "Initiaing scroll wheel enable: Set sample rate");
+    PS2_MOUSE_SEND(PS2_MOUSE_SET_SAMPLE_RATE, "Initiating scroll wheel enable: Set sample rate");
     PS2_MOUSE_SEND(200, "200");
     PS2_MOUSE_SEND(PS2_MOUSE_SET_SAMPLE_RATE, "Set sample rate");
     PS2_MOUSE_SEND(100, "100");
@@ -216,7 +243,14 @@ static inline void ps2_mouse_scroll_button_task(report_mouse_t *mouse_report) {
         SCROLL_BTN,
         SCROLL_SENT,
     } scroll_state = SCROLL_NONE;
+    static enum {
+        SCROLL_AXIS_BOTH,
+        SCROLL_AXIS_Y,
+        SCROLL_AXIS_X,
+    } scroll_axis = SCROLL_AXIS_BOTH;
     static uint16_t scroll_button_time = 0;
+    static uint8_t abs_x = 0;
+    static uint8_t abs_y = 0;
 
     if (PS2_MOUSE_SCROLL_BTN_MASK == (mouse_report->buttons & (PS2_MOUSE_SCROLL_BTN_MASK))) {
         // All scroll buttons are pressed
@@ -226,11 +260,29 @@ static inline void ps2_mouse_scroll_button_task(report_mouse_t *mouse_report) {
             scroll_state = SCROLL_BTN;
         }
 
-        // If the mouse has moved, update the report to scroll instead of move the mouse
+        // If the mouse has moved, update the report to scroll instead of moving the mouse
         if (mouse_report->x || mouse_report->y) {
             scroll_state = SCROLL_SENT;
-            mouse_report->v = -mouse_report->y/(PS2_MOUSE_SCROLL_DIVISOR_V);
-            mouse_report->h =  mouse_report->x/(PS2_MOUSE_SCROLL_DIVISOR_H);
+
+            if (mouse_report->y) {
+                abs_y = abs(mouse_report->y);
+                mouse_report->v = -mouse_report->y/(PS2_MOUSE_SCROLL_DIVISOR_V);
+                // make sure to send at least the minimum amount of scroll
+                if (!mouse_report->v) { mouse_report->v = -mouse_report->y/abs_y; }
+            }
+            if (mouse_report->x) {
+                abs_x = abs(mouse_report->x);
+                mouse_report->h =  mouse_report->x/(PS2_MOUSE_SCROLL_DIVISOR_H);
+                // make sure to send at least the minimum amount of scroll
+                if (!mouse_report->h) { mouse_report->h = mouse_report->x/abs_x; }
+            }
+
+            if (scroll_axis == SCROLL_AXIS_Y) {
+                mouse_report->h = 0;
+            } else if (scroll_axis == SCROLL_AXIS_X) {
+                mouse_report->v = 0;
+            }
+
             mouse_report->x = 0;
             mouse_report->y = 0;
 #ifdef PS2_MOUSE_INVERT_H
@@ -244,16 +296,42 @@ static inline void ps2_mouse_scroll_button_task(report_mouse_t *mouse_report) {
         // None of the scroll buttons are pressed
 
 #if PS2_MOUSE_SCROLL_BTN_SEND
-        if (scroll_state == SCROLL_BTN
+        // if the Scroll button was pressed and released fast enough
+        if (scroll_state != SCROLL_NONE
                 && timer_elapsed(scroll_button_time) < PS2_MOUSE_SCROLL_BTN_SEND) {
-            PRESS_SCROLL_BUTTONS;
-            host_mouse_send(mouse_report);
-            _delay_ms(100);
-            RELEASE_SCROLL_BUTTONS;
+            // clear scrolling events
+            mouse_report->v = 0;
+            mouse_report->h = 0;
+            // If Fn was down
+#ifndef NO_ACTION_LAYER
+#ifdef FUNCTION_LAYER_NUMBER
+            if (layer_state & (1<<FUNCTION_LAYER_NUMBER)) {
+                // ignore Scroll button press, just switch scroll axis instead
+                if (scroll_axis == SCROLL_AXIS_BOTH) {
+                    scroll_axis = SCROLL_AXIS_Y;
+                } else if (scroll_axis == SCROLL_AXIS_Y) {
+                    scroll_axis = SCROLL_AXIS_X;
+                } else if (scroll_axis == SCROLL_AXIS_X) {
+                    scroll_axis = SCROLL_AXIS_BOTH;
+                }
+            } else {
+#endif
+#endif
+                // send Scroll Button press (down and up at once) instead of scroll event
+                PRESS_SCROLL_BUTTONS;
+                host_mouse_send(mouse_report);
+                _delay_ms(75);
+                RELEASE_SCROLL_BUTTONS;
+#ifndef NO_ACTION_LAYER
+#ifdef FUNCTION_LAYER_NUMBER
+            }
+#endif
+#endif
         }
 #endif
         scroll_state = SCROLL_NONE;
     }
 
+    // don't send Scroll Button
     RELEASE_SCROLL_BUTTONS;
 }

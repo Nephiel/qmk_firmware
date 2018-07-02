@@ -1,10 +1,12 @@
 #include "audio.h"
 #include "process_audio.h"
 
+/*
 #ifndef VOICE_CHANGE_SONG
     #define VOICE_CHANGE_SONG SONG(VOICE_CHANGE_SOUND)
 #endif
 float voice_change_song[][2] = VOICE_CHANGE_SONG;
+*/
 
 #ifndef PITCH_STANDARD_A
     #define PITCH_STANDARD_A 440.0f
@@ -41,13 +43,13 @@ bool process_audio(uint16_t keycode, keyrecord_t *record) {
 
     if (keycode == MUV_IN && record->event.pressed) {
         voice_iterate();
-        PLAY_SONG(voice_change_song);
+        //PLAY_SONG(voice_change_song);
         return false;
     }
 
     if (keycode == MUV_DE && record->event.pressed) {
         voice_deiterate();
-        PLAY_SONG(voice_change_song);
+        //PLAY_SONG(voice_change_song);
         return false;
     }
 

@@ -159,6 +159,7 @@ audio_config_t audio_config;
 uint16_t envelope_index = 0;
 bool glissando = true;
 
+/*
 #ifndef STARTUP_SONG
     #define STARTUP_SONG SONG(STARTUP_SOUND)
 #endif
@@ -171,6 +172,7 @@ bool glissando = true;
 float startup_song[][2] = STARTUP_SONG;
 float audio_on_song[][2] = AUDIO_ON_SONG;
 float audio_off_song[][2] = AUDIO_OFF_SONG;
+*/
 
 void audio_init()
 {
@@ -228,9 +230,11 @@ void audio_init()
         audio_initialized = true;
     }
 
+    /*
     if (audio_config.enable) {
         PLAY_SONG(startup_song);
     }
+    */
     
 }
 
@@ -769,11 +773,11 @@ void audio_on(void) {
     audio_config.enable = 1;
     eeconfig_update_audio(audio_config.raw);
     audio_on_user();
-    PLAY_SONG(audio_on_song);
+    //PLAY_SONG(audio_on_song);
 }
 
 void audio_off(void) {
-    PLAY_SONG(audio_off_song);
+    //PLAY_SONG(audio_off_song);
     wait_ms(100);
     stop_all_notes();
     audio_config.enable = 0;
@@ -826,6 +830,30 @@ void enable_polyphony() {
 
 void disable_polyphony() {
     polyphony_rate = 0;
+}
+
+void toggle_polyphony() {
+    if (polyphony_rate == 0) {
+        enable_polyphony();
+    } else {
+        disable_polyphony();
+    }
+}
+
+void enable_glissando() {
+    glissando = true;
+}
+
+void disable_glissando() {
+    glissando = false;
+}
+
+void toggle_glissando() {
+    if (glissando) {
+        disable_glissando();
+    } else {
+        enable_glissando();
+    }
 }
 
 void increase_polyphony_rate(float change) {

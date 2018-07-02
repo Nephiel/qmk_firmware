@@ -28,9 +28,10 @@ bool music_activated = false;
 bool midi_activated = false;
 uint8_t music_starting_note = 0x0C;
 int music_offset = 7;
-uint8_t music_mode = MUSIC_MODE_MAJOR;
+//uint8_t music_mode = MUSIC_MODE_MAJOR;
 
 // music sequencer
+#ifdef AUDIO_SEQUENCER_ENABLE
 static bool music_sequence_recording = false;
 static bool music_sequence_recorded = false;
 static bool music_sequence_playing = false;
@@ -40,7 +41,9 @@ static uint8_t music_sequence_position = 0;
 
 static uint16_t music_sequence_timer = 0;
 static uint16_t music_sequence_interval = 100;
+#endif
 
+/*
 #ifdef AUDIO_ENABLE
   #ifndef MUSIC_ON_SONG
     #define MUSIC_ON_SONG SONG(MUSIC_ON_SOUND)
@@ -77,6 +80,7 @@ static uint16_t music_sequence_interval = 100;
   float midi_on_song[][2] = MIDI_ON_SONG;
   float midi_off_song[][2] = MIDI_OFF_SONG;
 #endif
+*/
 
 static void music_noteon(uint8_t note) {
     #ifdef AUDIO_ENABLE
@@ -151,12 +155,15 @@ bool process_music(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
 
+    /*
     if (keycode == MU_MOD && record->event.pressed) {
       music_mode_cycle();
       return false;
     }
+    */
 
     if (music_activated || midi_activated) {
+#ifdef AUDIO_SEQUENCER_ENABLE
       if (record->event.pressed) {
         if (keycode == KC_LCTL) { // Start recording
           music_all_notes_off();
@@ -196,7 +203,45 @@ bool process_music(uint16_t keycode, keyrecord_t *record) {
           return false;
         }
       }
+#else
+      if (record->event.pressed) {
+          switch (keycode) {
+              case KC_LCTL:
+                  if (music_offset > 0) {music_offset--;}
+                  return false;
+                  break;
+              case KC_RCTL:
+                  if (music_offset < 12) {music_offset++;}
+                  return false;
+                  break;
+              case KC_LGUI:
+#ifdef AUDIO_VOICES
+                  voice_deiterate();
+#endif
+                  return false;
+                  break;
+              case KC_RGUI:
+#ifdef AUDIO_VOICES
+                  voice_iterate();
+#endif
+                  return false;
+                  break;
+              case KC_LALT:
+              case KC_RALT:
+                  toggle_polyphony();
+                  return false;
+                  break;
+              case KC_APP:
+                  toggle_glissando();
+                  return false;
+                  break;
+              default:
+                  break;
+          }
+      }
+#endif
 
+      /*
       uint8_t note;
       if (music_mode == MUSIC_MODE_CHROMATIC)
         note = (music_starting_note + record->event.key.col + music_offset - 3)+12*(MATRIX_ROWS - record->event.key.row);
@@ -208,16 +253,27 @@ bool process_music(uint16_t keycode, keyrecord_t *record) {
         note = (music_starting_note + SCALE[record->event.key.col + music_offset] - 3)+12*(MATRIX_ROWS - record->event.key.row);
       else
         note = music_starting_note;
+      */
+      bool extra_col = (record->event.key.row == 3);
+      uint8_t note = (music_starting_note + record->event.key.col - extra_col + music_offset + 32)+7*(MATRIX_ROWS - record->event.key.row);
 
-      if (record->event.pressed) {
-        music_noteon(note);
-        if (music_sequence_recording) {
-          music_sequence[music_sequence_count] = note;
-          music_sequence_count++;
+#ifdef FUNCTION_LAYER_NUMBER
+      if (keycode != TT(FUNCTION_LAYER_NUMBER)) {
+#endif
+        if (record->event.pressed) {
+          music_noteon(note);
+#ifdef AUDIO_SEQUENCER_ENABLE
+          if (music_sequence_recording) {
+            music_sequence[music_sequence_count] = note;
+            music_sequence_count++;
+          }
+#endif
+        } else {
+          music_noteoff(note);
         }
-      } else {
-        music_noteoff(note);
+#ifdef FUNCTION_LAYER_NUMBER
       }
+#endif
 
       if (music_mask(keycode))
         return false;
@@ -258,18 +314,22 @@ void music_toggle(void) {
 
 void music_on(void) {
     music_activated = 1;
+    /*
     #ifdef AUDIO_ENABLE
       PLAY_SONG(music_on_song);
     #endif
+    */
     music_on_user();
 }
 
 void music_off(void) {
     music_all_notes_off();
     music_activated = 0;
+    /*
     #ifdef AUDIO_ENABLE
       PLAY_SONG(music_off_song);
     #endif
+    */
 }
 
 bool is_midi_on(void) {
@@ -286,9 +346,11 @@ void midi_toggle(void) {
 
 void midi_on(void) {
     midi_activated = 1;
+    /*
     #ifdef AUDIO_ENABLE
       PLAY_SONG(midi_on_song);
     #endif
+    */
     midi_on_user();
 }
 
@@ -297,11 +359,14 @@ void midi_off(void) {
       process_midi_all_notes_off();
     #endif
     midi_activated = 0;
+    /*
     #ifdef AUDIO_ENABLE
       PLAY_SONG(midi_off_song);
     #endif
+    */
 }
 
+/*
 void music_mode_cycle(void) {
   music_all_notes_off();
   music_mode = (music_mode + 1) % NUMBER_OF_MODES;
@@ -309,8 +374,10 @@ void music_mode_cycle(void) {
     PLAY_SONG(music_mode_songs[music_mode]);
   #endif
 }
+*/
 
 void matrix_scan_music(void) {
+#ifdef AUDIO_SEQUENCER_ENABLE
   if (music_sequence_playing) {
     if ((music_sequence_timer == 0) || (timer_elapsed(music_sequence_timer) > music_sequence_interval)) {
       music_sequence_timer = timer_read();
@@ -321,6 +388,7 @@ void matrix_scan_music(void) {
       music_sequence_position = (music_sequence_position + 1) % music_sequence_count;
     }
   }
+#endif
 }
 
 __attribute__ ((weak))

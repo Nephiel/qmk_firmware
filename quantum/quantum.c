@@ -42,6 +42,7 @@ extern backlight_config_t backlight_config;
 #include "process_midi.h"
 #endif
 
+/*
 #ifdef AUDIO_ENABLE
   #ifndef GOODBYE_SONG
     #define GOODBYE_SONG SONG(GOODBYE_SOUND)
@@ -59,6 +60,7 @@ extern backlight_config_t backlight_config;
     float default_layer_songs[][16][2] = DEFAULT_LAYER_SONGS;
   #endif
 #endif
+*/
 
 static void do_code16 (uint16_t code, void (*f) (uint8_t)) {
   switch (code) {
@@ -150,7 +152,7 @@ void reset_keyboard(void) {
 #if defined(AUDIO_ENABLE) && !defined(NO_MUSIC_MODE)
   music_all_notes_off();
   uint16_t timer_start = timer_read();
-  PLAY_SONG(goodbye_song);
+  //PLAY_SONG(goodbye_song);
   shutdown_user();
   while(timer_elapsed(timer_start) < 250)
     wait_ms(1);
@@ -167,25 +169,33 @@ void reset_keyboard(void) {
 
 // Shift / paren setup
 
+/*
 #ifndef LSPO_KEY
   #define LSPO_KEY KC_9
 #endif
 #ifndef RSPC_KEY
   #define RSPC_KEY KC_0
 #endif
+*/
 
 // Shift / Enter setup
+/*
 #ifndef SFTENT_KEY
   #define SFTENT_KEY KC_ENT
 #endif
+*/
 
+/*
 static bool shift_interrupted[2] = {0, 0};
 static uint16_t scs_timer[2] = {0, 0};
+*/
 
 /* true if the last press of GRAVE_ESC was shifted (i.e. GUI or SHIFT were pressed), false otherwise.
  * Used to ensure that the correct keycode is released if the key is released.
  */
+/*
 static bool grave_esc_was_shifted = false;
+*/
 
 bool process_record_quantum(keyrecord_t *record) {
 
@@ -504,9 +514,11 @@ bool process_record_quantum(keyrecord_t *record) {
           case MAGIC_SWAP_ALT_GUI:
             keymap_config.swap_lalt_lgui = true;
             keymap_config.swap_ralt_rgui = true;
+            /*
             #ifdef AUDIO_ENABLE
               PLAY_SONG(ag_swap_song);
             #endif
+            */
             break;
           case MAGIC_UNSWAP_CONTROL_CAPSLOCK:
             keymap_config.swap_control_capslock = false;
@@ -535,9 +547,11 @@ bool process_record_quantum(keyrecord_t *record) {
           case MAGIC_UNSWAP_ALT_GUI:
             keymap_config.swap_lalt_lgui = false;
             keymap_config.swap_ralt_rgui = false;
+            /*
             #ifdef AUDIO_ENABLE
               PLAY_SONG(ag_norm_song);
             #endif
+            */
             break;
           case MAGIC_TOGGLE_NKRO:
             keymap_config.nkro = !keymap_config.nkro;
@@ -551,6 +565,7 @@ bool process_record_quantum(keyrecord_t *record) {
         return false;
       }
       break;
+    /*
     case KC_LSPO: {
       if (record->event.pressed) {
         shift_interrupted[0] = false;
@@ -572,7 +587,9 @@ bool process_record_quantum(keyrecord_t *record) {
       }
       return false;
     }
+    */
 
+    /*
     case KC_RSPC: {
       if (record->event.pressed) {
         shift_interrupted[1] = false;
@@ -594,7 +611,9 @@ bool process_record_quantum(keyrecord_t *record) {
       }
       return false;
     }
+    */
 
+    /*
     case KC_SFTENT: {
       if (record->event.pressed) {
         shift_interrupted[1] = false;
@@ -611,7 +630,9 @@ bool process_record_quantum(keyrecord_t *record) {
       }
       return false;
     }
+    */
 
+    /*
     case GRAVE_ESC: {
       uint8_t shifted = get_mods() & ((MOD_BIT(KC_LSHIFT)|MOD_BIT(KC_RSHIFT)
                                       |MOD_BIT(KC_LGUI)|MOD_BIT(KC_RGUI)));
@@ -657,6 +678,7 @@ bool process_record_quantum(keyrecord_t *record) {
       send_keyboard_report();
       return false;
     }
+*/
 
 #if defined(BACKLIGHT_ENABLE) && defined(BACKLIGHT_BREATHING)
     case BL_BRTG: {
@@ -667,8 +689,10 @@ bool process_record_quantum(keyrecord_t *record) {
 #endif
 
     default: {
+      /*
       shift_interrupted[0] = true;
       shift_interrupted[1] = true;
+      */
       break;
     }
   }
@@ -791,9 +815,11 @@ void send_char(char ascii_code) {
 }
 
 void set_single_persistent_default_layer(uint8_t default_layer) {
+  /*
   #if defined(AUDIO_ENABLE) && defined(DEFAULT_LAYER_SONGS)
     PLAY_SONG(default_layer_songs[default_layer]);
   #endif
+  */
   eeconfig_update_default_layer(1U<<default_layer);
   default_layer_set(1U<<default_layer);
 }

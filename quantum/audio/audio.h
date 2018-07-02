@@ -72,8 +72,13 @@ void decrease_vibrato_strength(float change);
 void set_polyphony_rate(float rate);
 void enable_polyphony(void);
 void disable_polyphony(void);
+void toggle_polyphony(void);
 void increase_polyphony_rate(float change);
 void decrease_polyphony_rate(float change);
+
+void enable_glissando(void);
+void disable_glissando(void);
+void toggle_glissando(void);
 
 void set_timbre(float timbre);
 void set_tempo(uint8_t tempo);
